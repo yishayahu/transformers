@@ -25,6 +25,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 import torch
 from torch import Tensor, device, dtype, nn
 from torch.nn import CrossEntropyLoss
+from torch.nn import functional as F
 
 from .activations import get_activation
 from .configuration_utils import PretrainedConfig
@@ -354,7 +355,9 @@ class ModuleUtilsMixin:
         """
 
         def parameter_filter(x):
-            return (x.requires_grad or not only_trainable) and not (isinstance(x, nn.Embedding) and exclude_embeddings)
+            return (x.requires_grad or not only_trainable) and not (
+                isinstance(x, torch.nn.Embedding) and exclude_embeddings
+            )
 
         params = filter(parameter_filter, self.parameters()) if only_trainable else self.parameters()
         return sum(p.numel() for p in params)
@@ -546,7 +549,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
         ):
             assert isinstance(decoder_pointer, nn.Module) and isinstance(
                 encoder_pointer, nn.Module
-            ), f"{decoder_pointer} and {encoder_pointer} have to be of type nn.Module"
+            ), f"{decoder_pointer} and {encoder_pointer} have to be of type torch.nn.Module"
             if hasattr(decoder_pointer, "weight"):
                 assert hasattr(encoder_pointer, "weight")
                 encoder_pointer.weight = decoder_pointer.weight
@@ -610,7 +613,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
             output_embeddings.weight = input_embeddings.weight
 
         if getattr(output_embeddings, "bias", None) is not None:
-            output_embeddings.bias.data = nn.functional.pad(
+            output_embeddings.bias.data = torch.nn.functional.pad(
                 output_embeddings.bias.data,
                 (
                     0,
@@ -622,7 +625,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
         if hasattr(output_embeddings, "out_features") and hasattr(input_embeddings, "num_embeddings"):
             output_embeddings.out_features = input_embeddings.num_embeddings
 
-    def resize_token_embeddings(self, new_num_tokens: Optional[int] = None) -> nn.Embedding:
+    def resize_token_embeddings(self, new_num_tokens: Optional[int] = None) -> torch.nn.Embedding:
         """
         Resizes input token embeddings matrix of the model if :obj:`new_num_tokens != config.vocab_size`.
 
@@ -665,8 +668,8 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
         return self.get_input_embeddings()
 
     def _get_resized_embeddings(
-        self, old_embeddings: nn.Embedding, new_num_tokens: Optional[int] = None
-    ) -> nn.Embedding:
+        self, old_embeddings: torch.nn.Embedding, new_num_tokens: Optional[int] = None
+    ) -> torch.nn.Embedding:
         """
         Build a resized Embedding Module from a provided token Embedding Module. Increasing the size will add newly
         initialized vectors at the end. Reducing the size will remove vectors from the end
@@ -729,8 +732,8 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
         return new_embeddings
 
     def _get_resized_lm_head(
-        self, old_lm_head: nn.Linear, new_num_tokens: Optional[int] = None, transposed: Optional[bool] = False
-    ) -> nn.Linear:
+        self, old_lm_head: torch.nn.Linear, new_num_tokens: Optional[int] = None, transposed: Optional[bool] = False
+    ) -> torch.nn.Linear:
         """
         Build a resized Linear Module from a provided old Linear Module. Increasing the size will add newly initialized
         vectors at the end. Reducing the size will remove vectors from the end
@@ -1206,7 +1209,8 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
                         f"at '{resolved_archive_file}'"
                         "If you tried to load a PyTorch model from a TF 2.0 checkpoint, please set from_tf=True. "
                     )
-
+            del state_dict['cls.seq_relationship.bias']
+            del state_dict['cls.seq_relationship.weight']
             model, missing_keys, unexpected_keys, error_msgs = cls._load_state_dict_into_model(
                 model, state_dict, pretrained_model_name_or_path, _fast_init=_fast_init
             )
@@ -1678,7 +1682,7 @@ class SQuADHead(nn.Module):
         else:
             # during inference, compute the end logits based on beam search
             bsz, slen, hsz = hidden_states.size()
-            start_log_probs = nn.functional.softmax(start_logits, dim=-1)  # shape (bsz, slen)
+            start_log_probs = F.softmax(start_logits, dim=-1)  # shape (bsz, slen)
 
             start_top_log_probs, start_top_index = torch.topk(
                 start_log_probs, self.start_n_top, dim=-1
@@ -1692,7 +1696,7 @@ class SQuADHead(nn.Module):
             )  # shape (bsz, slen, start_n_top, hsz)
             p_mask = p_mask.unsqueeze(-1) if p_mask is not None else None
             end_logits = self.end_logits(hidden_states_expanded, start_states=start_states, p_mask=p_mask)
-            end_log_probs = nn.functional.softmax(end_logits, dim=1)  # shape (bsz, slen, start_n_top)
+            end_log_probs = F.softmax(end_logits, dim=1)  # shape (bsz, slen, start_n_top)
 
             end_top_log_probs, end_top_index = torch.topk(
                 end_log_probs, self.end_n_top, dim=1
@@ -1817,7 +1821,7 @@ class SequenceSummary(nn.Module):
         return output
 
 
-def unwrap_model(model: nn.Module) -> nn.Module:
+def unwrap_model(model: torch.nn.Module) -> torch.nn.Module:
     """
     Recursively unwraps a model from potential containers (as used in distributed training).
 
@@ -1831,7 +1835,7 @@ def unwrap_model(model: nn.Module) -> nn.Module:
         return model
 
 
-def prune_linear_layer(layer: nn.Linear, index: torch.LongTensor, dim: int = 0) -> nn.Linear:
+def prune_linear_layer(layer: torch.nn.Linear, index: torch.LongTensor, dim: int = 0) -> torch.nn.Linear:
     """
     Prune a linear layer to keep only entries in index.
 
@@ -1899,8 +1903,8 @@ def prune_conv1d_layer(layer: Conv1D, index: torch.LongTensor, dim: int = 1) -> 
 
 
 def prune_layer(
-    layer: Union[nn.Linear, Conv1D], index: torch.LongTensor, dim: Optional[int] = None
-) -> Union[nn.Linear, Conv1D]:
+    layer: Union[torch.nn.Linear, Conv1D], index: torch.LongTensor, dim: Optional[int] = None
+) -> Union[torch.nn.Linear, Conv1D]:
     """
     Prune a Conv1D or linear layer to keep only entries in index.
 

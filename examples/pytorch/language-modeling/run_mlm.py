@@ -24,6 +24,7 @@ https://huggingface.co/models?filter=masked-lm
 import logging
 import math
 import os
+import pickle
 import sys
 from dataclasses import dataclass, field
 from typing import Optional
@@ -41,7 +42,7 @@ from transformers import (
     HfArgumentParser,
     Trainer,
     TrainingArguments,
-    set_seed,
+    set_seed, AutoModelForPreTraining,
 )
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
@@ -72,13 +73,6 @@ class ModelArguments:
         default=None,
         metadata={"help": "If training from scratch, pass a model type from the list: " + ", ".join(MODEL_TYPES)},
     )
-    config_overrides: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Override some existing default config settings when a model is trained from scratch. Example: "
-            "n_embd=10,resid_pdrop=0.2,scale_attn_weights=false,summary_type=cls_index"
-        },
-    )
     config_name: Optional[str] = field(
         default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}
     )
@@ -104,12 +98,6 @@ class ModelArguments:
             "with private models)."
         },
     )
-
-    def __post_init__(self):
-        if self.config_overrides is not None and (self.config_name is not None or self.model_name_or_path is not None):
-            raise ValueError(
-                "--config_overrides can't be used in combination with --config_name or --model_name_or_path"
-            )
 
 
 @dataclass
@@ -203,6 +191,21 @@ def main():
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
+    # Detecting last checkpoint.
+    last_checkpoint = None
+    if os.path.isdir(training_args.output_dir) and training_args.do_train and not training_args.overwrite_output_dir:
+        last_checkpoint = get_last_checkpoint(training_args.output_dir)
+        if last_checkpoint is None and len(os.listdir(training_args.output_dir)) > 0:
+            raise ValueError(
+                f"Output directory ({training_args.output_dir}) already exists and is not empty. "
+                "Use --overwrite_output_dir to overcome."
+            )
+        elif last_checkpoint is not None and training_args.resume_from_checkpoint is None:
+            logger.info(
+                f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "
+                "the `--output_dir` or add `--overwrite_output_dir` to train from scratch."
+            )
+
     # Setup logging
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
@@ -223,21 +226,6 @@ def main():
         transformers.utils.logging.enable_explicit_format()
     logger.info(f"Training/evaluation parameters {training_args}")
 
-    # Detecting last checkpoint.
-    last_checkpoint = None
-    if os.path.isdir(training_args.output_dir) and training_args.do_train and not training_args.overwrite_output_dir:
-        last_checkpoint = get_last_checkpoint(training_args.output_dir)
-        if last_checkpoint is None and len(os.listdir(training_args.output_dir)) > 0:
-            raise ValueError(
-                f"Output directory ({training_args.output_dir}) already exists and is not empty. "
-                "Use --overwrite_output_dir to overcome."
-            )
-        elif last_checkpoint is not None and training_args.resume_from_checkpoint is None:
-            logger.info(
-                f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "
-                "the `--output_dir` or add `--overwrite_output_dir` to train from scratch."
-            )
-
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
@@ -252,6 +240,7 @@ def main():
     # download the dataset.
     if data_args.dataset_name is not None:
         # Downloading and loading a dataset from the hub.
+        model_args.cache_dir = r'C:\Users\Y\PycharmProjects\datasets'
         datasets = load_dataset(data_args.dataset_name, data_args.dataset_config_name, cache_dir=model_args.cache_dir)
         if "validation" not in datasets.keys():
             datasets["validation"] = load_dataset(
@@ -267,15 +256,7 @@ def main():
                 cache_dir=model_args.cache_dir,
             )
     else:
-        data_files = {}
-        if data_args.train_file is not None:
-            data_files["train"] = data_args.train_file
-        if data_args.validation_file is not None:
-            data_files["validation"] = data_args.validation_file
-        extension = data_args.train_file.split(".")[-1]
-        if extension == "txt":
-            extension = "text"
-        datasets = load_dataset(extension, data_files=data_files, cache_dir=model_args.cache_dir)
+        assert False
     # See more about loading any type of standard or custom dataset (from files, python dict, pandas DataFrame, etc) at
     # https://huggingface.co/docs/datasets/loading_datasets.html.
 
@@ -296,9 +277,6 @@ def main():
     else:
         config = CONFIG_MAPPING[model_args.model_type]()
         logger.warning("You are instantiating a new config instance from scratch.")
-        if model_args.config_overrides is not None:
-            logger.info(f"Overriding config: {model_args.config_overrides}")
-            config.update_from_string(model_args.config_overrides)
 
     tokenizer_kwargs = {
         "cache_dir": model_args.cache_dir,
@@ -317,7 +295,7 @@ def main():
         )
 
     if model_args.model_name_or_path:
-        model = AutoModelForMaskedLM.from_pretrained(
+        model = AutoModelForPreTraining.from_pretrained(
             model_args.model_name_or_path,
             from_tf=bool(".ckpt" in model_args.model_name_or_path),
             config=config,
@@ -354,38 +332,16 @@ def main():
                 f"model ({tokenizer.model_max_length}). Using max_seq_length={tokenizer.model_max_length}."
             )
         max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
-
+    wiki_with_categories = pickle.load(open(r'C:\Users\Y\Google Drive\wikiClassification\wiki_with_categories.p','rb'))
     if data_args.line_by_line:
-        # When using line_by_line, we just tokenize each nonempty line.
-        padding = "max_length" if data_args.pad_to_max_length else False
-
-        def tokenize_function(examples):
-            # Remove empty lines
-            examples[text_column_name] = [
-                line for line in examples[text_column_name] if len(line) > 0 and not line.isspace()
-            ]
-            return tokenizer(
-                examples[text_column_name],
-                padding=padding,
-                truncation=True,
-                max_length=max_seq_length,
-                # We use this option because DataCollatorForLanguageModeling (see below) is more efficient when it
-                # receives the `special_tokens_mask`.
-                return_special_tokens_mask=True,
-            )
-
-        tokenized_datasets = datasets.map(
-            tokenize_function,
-            batched=True,
-            num_proc=data_args.preprocessing_num_workers,
-            remove_columns=[text_column_name],
-            load_from_cache_file=not data_args.overwrite_cache,
-        )
+        pass
     else:
         # Otherwise, we tokenize every text, then concatenate them together before splitting them in smaller parts.
         # We use `return_special_tokens_mask=True` because DataCollatorForLanguageModeling (see below) is more
         # efficient when it receives the `special_tokens_mask`.
         def tokenize_function(examples):
+            labels = [wiki_with_categories[x] for x in examples['title']]
+            examples['labels'] = labels
             return tokenizer(examples[text_column_name], return_special_tokens_mask=True)
 
         tokenized_datasets = datasets.map(
@@ -395,36 +351,36 @@ def main():
             remove_columns=column_names,
             load_from_cache_file=not data_args.overwrite_cache,
         )
-
-        # Main data processing function that will concatenate all texts from our dataset and generate chunks of
-        # max_seq_length.
-        def group_texts(examples):
-            # Concatenate all texts.
-            concatenated_examples = {k: sum(examples[k], []) for k in examples.keys()}
-            total_length = len(concatenated_examples[list(examples.keys())[0]])
-            # We drop the small remainder, we could add padding if the model supported it instead of this drop, you can
-            # customize this part to your needs.
-            total_length = (total_length // max_seq_length) * max_seq_length
-            # Split by chunks of max_len.
-            result = {
-                k: [t[i : i + max_seq_length] for i in range(0, total_length, max_seq_length)]
-                for k, t in concatenated_examples.items()
-            }
-            return result
-
-        # Note that with `batched=True`, this map processes 1,000 texts together, so group_texts throws away a
-        # remainder for each of those groups of 1,000 texts. You can adjust that batch_size here but a higher value
-        # might be slower to preprocess.
         #
-        # To speed up this part, we use multiprocessing. See the documentation of the map method for more information:
-        # https://huggingface.co/docs/datasets/package_reference/main_classes.html#datasets.Dataset.map
-
-        tokenized_datasets = tokenized_datasets.map(
-            group_texts,
-            batched=True,
-            num_proc=data_args.preprocessing_num_workers,
-            load_from_cache_file=not data_args.overwrite_cache,
-        )
+        # # Main data processing function that will concatenate all texts from our dataset and generate chunks of
+        # # max_seq_length.
+        # def group_texts(examples):
+        #     # Concatenate all texts.
+        #     concatenated_examples = {k: sum(examples[k], []) for k in examples.keys()}
+        #     total_length = len(concatenated_examples[list(examples.keys())[0]])
+        #     # We drop the small remainder, we could add padding if the model supported it instead of this drop, you can
+        #     # customize this part to your needs.
+        #     total_length = (total_length // max_seq_length) * max_seq_length
+        #     # Split by chunks of max_len.
+        #     result = {
+        #         k: [t[i : i + max_seq_length] for i in range(0, total_length, max_seq_length)]
+        #         for k, t in concatenated_examples.items()
+        #     }
+        #     return result
+        #
+        # # Note that with `batched=True`, this map processes 1,000 texts together, so group_texts throws away a
+        # # remainder for each of those groups of 1,000 texts. You can adjust that batch_size here but a higher value
+        # # might be slower to preprocess.
+        # #
+        # # To speed up this part, we use multiprocessing. See the documentation of the map method for more information:
+        # # https://huggingface.co/docs/datasets/package_reference/main_classes.html#datasets.Dataset.map
+        #
+        # tokenized_datasets = tokenized_datasets.map(
+        #     group_texts,
+        #     batched=True,
+        #     num_proc=data_args.preprocessing_num_workers,
+        #     load_from_cache_file=not data_args.overwrite_cache,
+        # )
 
     if training_args.do_train:
         if "train" not in tokenized_datasets:
