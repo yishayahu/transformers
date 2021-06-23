@@ -26,6 +26,7 @@ import math
 import os
 import pickle
 import sys
+import torch
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -240,7 +241,6 @@ def main():
     # download the dataset.
     if data_args.dataset_name is not None:
         # Downloading and loading a dataset from the hub.
-        model_args.cache_dir = r'C:\Users\Y\PycharmProjects\datasets'
         datasets = load_dataset(data_args.dataset_name, data_args.dataset_config_name, cache_dir=model_args.cache_dir)
         if "validation" not in datasets.keys():
             datasets["validation"] = load_dataset(
@@ -332,17 +332,44 @@ def main():
                 f"model ({tokenizer.model_max_length}). Using max_seq_length={tokenizer.model_max_length}."
             )
         max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
-    wiki_with_categories = pickle.load(open(r'C:\Users\Y\Google Drive\wikiClassification\wiki_with_categories.p','rb'))
+
     if data_args.line_by_line:
         pass
     else:
         # Otherwise, we tokenize every text, then concatenate them together before splitting them in smaller parts.
         # We use `return_special_tokens_mask=True` because DataCollatorForLanguageModeling (see below) is more
         # efficient when it receives the `special_tokens_mask`.
+        combined_wiki = pickle.load(open("combined_wiki.p", "rb"))
         def tokenize_function(examples):
-            labels = [wiki_with_categories[x] for x in examples['title']]
-            examples['labels'] = labels
-            return tokenizer(examples[text_column_name], return_special_tokens_mask=True)
+            print("in tokenize function")
+            new_examples_text = []
+            new_examples_title = []
+            for article,title in zip(examples['text'],examples['title']):
+                full_paragraph = []
+                for i,paragraph in enumerate(article.split('.\n')):
+                    paragraph += '.\n'
+                    paragraph = paragraph.split(' ')
+                    if len(full_paragraph) +len(paragraph) > 300:
+                        new_examples_text.append(' '.join(full_paragraph))
+                        new_examples_title.append(title)
+                        full_paragraph = []
+                    full_paragraph += paragraph
+                if full_paragraph:
+                    new_examples_text.append(' '.join(full_paragraph))
+                    new_examples_title.append(title)
+            examples['text'] = new_examples_text
+            examples['title'] = new_examples_title
+            examples['category_labels'] = []#[ for x in examples['title']]
+            for title in examples['title']:
+                zeros = torch.zeros(2211)
+                if title in combined_wiki:
+                    for category_idx in combined_wiki[title]:
+                        zeros[category_idx] = 1
+                else:
+                    zeros[0] = 1
+                examples['category_labels'].append(zeros)
+            return tokenizer(examples[text_column_name], return_special_tokens_mask=True,truncation=True,padding=True)
+
 
         tokenized_datasets = datasets.map(
             tokenize_function,
@@ -404,7 +431,6 @@ def main():
         mlm_probability=data_args.mlm_probability,
         pad_to_multiple_of=8 if pad_to_multiple_of_8 else None,
     )
-    exit()
 
     # Initialize our Trainer
     trainer = Trainer(
