@@ -341,7 +341,6 @@ def main():
         # efficient when it receives the `special_tokens_mask`.
         combined_wiki = pickle.load(open("combined_wiki.p", "rb"))
         def tokenize_function(examples):
-            print("in tokenize function")
             new_examples_text = []
             new_examples_title = []
             for article,title in zip(examples['text'],examples['title']):
@@ -498,4 +497,5 @@ def _mp_fn(index):
 
 
 if __name__ == "__main__":
+    os.chdir('/home/yandex/AMNLP2021/yishayahug/transformers/')
     main()
