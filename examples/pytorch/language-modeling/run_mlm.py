@@ -358,7 +358,7 @@ def main():
                     new_examples_title.append(title)
             examples['text'] = new_examples_text
             examples['title'] = new_examples_title
-            examples['category_labels'] = []#[ for x in examples['title']]
+            examples['category_labels'] = []
             for title in examples['title']:
                 zeros = torch.zeros(2211)
                 if title in combined_wiki:
