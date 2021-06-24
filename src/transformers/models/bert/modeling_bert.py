@@ -1085,12 +1085,12 @@ class BertForPreTraining(BertPreTrainedModel):
         if labels is not None and category_labels is not None:
             loss_fct = CrossEntropyLoss()
             masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
-            loss_fct = nn.BCELoss(reduction='None')
+            loss_fct = nn.BCELoss(reduction='none')
             category_score = self.sigmoid(category_score.view(-1, 2211))
             category_loss = loss_fct(category_score, category_labels)
             # category_loss[category_labels == ] =
-
-            total_loss = masked_lm_loss + category_loss
+            category_loss[category_labels[:,0] == 1] = 0
+            total_loss = masked_lm_loss + torch.mean(category_loss)
 
         if not return_dict:
             output = (prediction_scores, category_score) + outputs[2:]
