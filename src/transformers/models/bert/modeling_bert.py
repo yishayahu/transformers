@@ -683,7 +683,7 @@ class BertPreTrainingHeads(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.predictions = BertLMPredictionHead(config)
-        self.seq_relationship = nn.Linear(config.hidden_size, 5000)
+        self.seq_relationship = nn.Linear(config.hidden_size, 2211)
 
     def forward(self, sequence_output, pooled_output):
         prediction_scores = self.predictions(sequence_output)
@@ -1085,9 +1085,11 @@ class BertForPreTraining(BertPreTrainedModel):
         if labels is not None and category_labels is not None:
             loss_fct = CrossEntropyLoss()
             masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
-            loss_fct = nn.BCELoss()
-            category_score = self.sigmoid(category_score.view(-1, 5000))
+            loss_fct = nn.BCELoss(reduction='None')
+            category_score = self.sigmoid(category_score.view(-1, 2211))
             category_loss = loss_fct(category_score, category_labels)
+            # category_loss[category_labels == ] =
+
             total_loss = masked_lm_loss + category_loss
 
         if not return_dict:
