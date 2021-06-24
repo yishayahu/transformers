@@ -460,6 +460,9 @@ class Trainer:
         # very last
         self._memory_tracker.stop_and_update_metrics()
 
+        self.cls_losses = [0,0]
+        self.mlm_losses = [0,0]
+
     def add_callback(self, callback):
         """
         Add a callback to the current list of :class:`~transformer.TrainerCallback`.
@@ -1400,6 +1403,10 @@ class Trainer:
 
             logs["loss"] = round(tr_loss_scalar / (self.state.global_step - self._globalstep_last_logged), 4)
             logs["learning_rate"] = self._get_learning_rate()
+            logs["loss_cls"] = self.cls_losses[0]
+            logs["loss_mlm"] = self.mlm_losses[0]
+            self.cls_losses = [0,0]
+            self.mlm_losses = [0,0]
 
             self._total_loss_scalar += tr_loss_scalar
             self._globalstep_last_logged = self.state.global_step
@@ -1743,10 +1750,10 @@ class Trainer:
 
         if self.use_amp:
             with autocast():
-                loss,outputs = self.compute_loss(model, inputs,return_outputs=True)
+                loss = self.compute_loss(model, inputs)
         else:
-            loss,outputs = self.compute_loss(model, inputs,return_outputs=True)
-        self.log({'loss_mlm': outputs['loss_mlm'], 'loss_cls': outputs['loss_cls']})
+            loss = self.compute_loss(model, inputs)
+
         if self.args.n_gpu > 1:
             loss = loss.mean()  # mean() to average on multi-gpu parallel training
 
@@ -1780,6 +1787,7 @@ class Trainer:
         else:
             labels = None
         outputs = model(**inputs)
+
         # Save past state if it exists
         # TODO: this needs to be fixed and made cleaner later.
         if self.args.past_index >= 0:
@@ -1790,6 +1798,9 @@ class Trainer:
         else:
             # We don't use .loss here since the model may return tuples instead of ModelOutput.
             loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
+            self.cls_losses[0] = (self.cls_losses[0]* self.cls_losses[1] +loss['loss_cls'].item())/(self.cls_losses[1]+1)
+            self.mlm_losses[0] = (self.mlm_losses[0]* self.mlm_losses[1] +loss['loss_mlm'].item())/(self.mlm_losses[1]+1)
+
 
         return (loss, outputs) if return_outputs else loss
 
