@@ -1798,8 +1798,8 @@ class Trainer:
         else:
             # We don't use .loss here since the model may return tuples instead of ModelOutput.
             loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
-            self.cls_losses[0] = (self.cls_losses[0]* self.cls_losses[1] +loss['loss_cls'].item())/(self.cls_losses[1]+1)
-            self.mlm_losses[0] = (self.mlm_losses[0]* self.mlm_losses[1] +loss['loss_mlm'].item())/(self.mlm_losses[1]+1)
+            self.cls_losses[0] = (self.cls_losses[0]* self.cls_losses[1] +outputs['loss_cls'].item())/(self.cls_losses[1]+1)
+            self.mlm_losses[0] = (self.mlm_losses[0]* self.mlm_losses[1] +outputs['loss_mlm'].item())/(self.mlm_losses[1]+1)
 
 
         return (loss, outputs) if return_outputs else loss
