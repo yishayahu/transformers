@@ -1090,7 +1090,8 @@ class BertForPreTraining(BertPreTrainedModel):
             loss_fct = nn.BCELoss(reduction='none')
             category_score = self.sigmoid(category_score.view(-1, 2211))
             category_loss = loss_fct(category_score, category_labels)
-            category_loss = torch.mean(category_loss[category_labels[:,0] == 0])
+            category_loss[category_labels[:, 0] == 1] = 0
+            category_loss = torch.mean(category_loss)
             total_loss = masked_lm_loss + category_loss
 
         if not return_dict:
