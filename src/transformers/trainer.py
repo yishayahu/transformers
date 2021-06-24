@@ -1743,12 +1743,14 @@ class Trainer:
 
         if self.use_amp:
             with autocast():
-                loss = self.compute_loss(model, inputs)
+                loss,outputs = self.compute_loss(model, inputs,return_outputs=True)
         else:
-            loss = self.compute_loss(model, inputs)
-
+            loss,outputs = self.compute_loss(model, inputs,return_outputs=True)
+        self.log({'loss_mlm': outputs['loss_mlm'], 'loss_cls': outputs['loss_cls']})
         if self.args.n_gpu > 1:
             loss = loss.mean()  # mean() to average on multi-gpu parallel training
+
+
 
         if self.args.gradient_accumulation_steps > 1 and not self.deepspeed:
             # deepspeed handles loss scaling by gradient_accumulation_steps in its `backward`

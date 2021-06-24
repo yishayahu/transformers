@@ -747,6 +747,8 @@ class BertForPreTrainingOutput(ModelOutput):
     """
 
     loss: Optional[torch.FloatTensor] = None
+    loss_mlm: Optional[torch.FloatTensor] = None
+    loss_cls: Optional[torch.FloatTensor] = None
     prediction_logits: torch.FloatTensor = None
     seq_relationship_logits: torch.FloatTensor = None
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
@@ -1088,8 +1090,8 @@ class BertForPreTraining(BertPreTrainedModel):
             loss_fct = nn.BCELoss(reduction='none')
             category_score = self.sigmoid(category_score.view(-1, 2211))
             category_loss = loss_fct(category_score, category_labels)
-            category_loss[category_labels[:,0] == 1] = 0
-            total_loss = masked_lm_loss + torch.mean(category_loss)
+            category_loss = torch.mean(category_loss[category_labels[:,0] == 0])
+            total_loss = masked_lm_loss + category_loss
 
         if not return_dict:
             output = (prediction_scores, category_score) + outputs[2:]
@@ -1097,6 +1099,8 @@ class BertForPreTraining(BertPreTrainedModel):
 
         return BertForPreTrainingOutput(
             loss=total_loss,
+            loss_mlm=masked_lm_loss,
+            loss_cls=category_loss,
             prediction_logits=prediction_scores,
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
