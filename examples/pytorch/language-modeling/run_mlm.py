@@ -497,5 +497,4 @@ def _mp_fn(index):
 
 
 if __name__ == "__main__":
-    os.chdir('/home/yandex/AMNLP2021/yishayahug/transformers/')
     main()
