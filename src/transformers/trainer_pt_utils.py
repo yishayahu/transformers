@@ -527,6 +527,8 @@ class LengthGroupedSampler(Sampler):
                 )
             lengths = [len(feature[self.model_input_name]) for feature in dataset]
         self.lengths = lengths
+        print(self.lengths)
+        exit()
         self.generator = generator
 
     def __len__(self):
