@@ -683,7 +683,7 @@ class BertPreTrainingHeads(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.predictions = BertLMPredictionHead(config)
-        self.seq_relationship = nn.Linear(config.hidden_size, 2211)
+        self.seq_relationship = nn.Linear(config.hidden_size, 2210)
 
     def forward(self, sequence_output, pooled_output):
         prediction_scores = self.predictions(sequence_output)
@@ -1088,11 +1088,17 @@ class BertForPreTraining(BertPreTrainedModel):
             loss_fct = CrossEntropyLoss()
             masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
             loss_fct = nn.BCELoss(reduction='none')
-            category_score = self.sigmoid(category_score.view(-1, 2211))
-            category_loss = loss_fct(category_score, category_labels)
-            category_loss[category_labels[:, 0] == 1] = 0
+            category_score = self.sigmoid(category_score.view(-1, 2210))
+            label_with_category = category_labels[:, 0] == 0
+            counter = [x for x in label_with_category if x]
+            print(label_with_category)
+            print(counter)
+            category_loss = loss_fct(category_score[label_with_category], category_labels[label_with_category][:,1:])
             category_loss = torch.mean(category_loss)
-            total_loss = masked_lm_loss + category_loss
+            loss_factor = 5
+            total_loss = masked_lm_loss + category_loss * loss_factor * (len(counter) / 8)
+            print(category_loss)
+            print(masked_lm_loss)
 
         if not return_dict:
             output = (prediction_scores, category_score) + outputs[2:]
