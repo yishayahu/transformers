@@ -616,7 +616,8 @@ class Trainer:
                     num_processes=self.args.world_size,
                     process_index=self.args.process_index,
                 )
-
+            print('in retirn 1')
+            exit()
             return DataLoader(
                 train_dataset,
                 batch_size=self.args.train_batch_size,
@@ -626,7 +627,8 @@ class Trainer:
             )
 
         train_sampler = self._get_train_sampler()
-
+        print('in retirn 2')
+        exit()
         return DataLoader(
             train_dataset,
             batch_size=self.args.train_batch_size,
