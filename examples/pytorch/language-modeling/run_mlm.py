@@ -433,7 +433,7 @@ def main():
 
     # Initialize our Trainer
     print(type(train_dataset[0]))
-    print(train_dataset[0])
+    print(train_dataset[0].keys())
     exit()
     trainer = Trainer(
         model=model,
