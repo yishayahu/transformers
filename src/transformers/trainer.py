@@ -104,7 +104,7 @@ from .trainer_pt_utils import (
     nested_numpify,
     nested_truncate,
     nested_xla_mesh_reduce,
-    reissue_pt_warnings,
+    reissue_pt_warnings, CategorySampler,
 )
 from .trainer_utils import (
     PREFIX_CHECKPOINT_DIR,
@@ -629,10 +629,8 @@ class Trainer:
 
         return DataLoader(
             train_dataset,
-            batch_size=self.args.train_batch_size,
-            sampler=train_sampler,
+            batch_sampler=CategorySampler(sampler=train_sampler,batch_size=self.args.train_batch_size,drop_last=True,ds=train_dataset),
             collate_fn=self.data_collator,
-            drop_last=self.args.dataloader_drop_last,
             num_workers=self.args.dataloader_num_workers,
             pin_memory=self.args.dataloader_pin_memory,
         )

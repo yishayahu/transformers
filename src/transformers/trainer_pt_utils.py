@@ -31,7 +31,7 @@ from packaging import version
 from torch import nn
 from torch.utils.data.dataset import Dataset, IterableDataset
 from torch.utils.data.distributed import DistributedSampler
-from torch.utils.data.sampler import RandomSampler, Sampler
+from torch.utils.data.sampler import RandomSampler, Sampler, BatchSampler
 
 from .file_utils import is_sagemaker_dp_enabled, is_sagemaker_mp_enabled, is_torch_tpu_available
 from .tokenization_utils_base import BatchEncoding
@@ -497,6 +497,35 @@ def get_length_grouped_indices(lengths, batch_size, mega_batch_mult=None, genera
     megabatches[0][0], megabatches[max_idx][0] = megabatches[max_idx][0], megabatches[0][0]
 
     return [i for megabatch in megabatches for i in megabatch]
+
+
+class CategorySampler(BatchSampler):
+    def __init__(self, sampler: Sampler[int], batch_size: int, drop_last: bool,ds) -> None:
+        # Since collections.abc.Iterable does not check for `__getitem__`, which
+        # is one way for an object to be an iterable, we don't do an `isinstance`
+        # check here.
+        super().__init__(sampler, batch_size, drop_last)
+        self.ds = ds
+
+
+
+    def __iter__(self) -> Iterator[List[int]]:
+        batch_category = []
+        batch_regular = []
+        half_batch_size = self.batch_size//2
+        for idx in self.sampler:
+            if self.ds[idx]['category_labels'][0] == 1:
+                batch_regular.append(idx)
+            else:
+                assert self.ds[idx]['category_labels'][0] == 0
+                batch_category.append(idx)
+
+            if len(batch_regular) >= half_batch_size and len(batch_category) >= half_batch_size:
+                yield batch_regular[:half_batch_size]+batch_category[:half_batch_size]
+                batch_category = batch_category[half_batch_size:]
+                batch_regular = batch_regular[half_batch_size:]
+
+        assert self.drop_last
 
 
 class LengthGroupedSampler(Sampler):
