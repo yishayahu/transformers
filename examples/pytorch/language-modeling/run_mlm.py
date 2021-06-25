@@ -432,6 +432,9 @@ def main():
     )
 
     # Initialize our Trainer
+    print(type(train_dataset[0]))
+    print(train_dataset[0])
+    exit()
     trainer = Trainer(
         model=model,
         args=training_args,
