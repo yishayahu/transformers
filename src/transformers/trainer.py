@@ -1808,6 +1808,7 @@ class Trainer:
             if random.random() < 0.1:
                 labels = inputs['labels']
                 to_decode = inputs['input_ids'][0].clone().detach()
+                print(inputs.keys())
                 to_decode[labels[0] != -100] = labels[0][labels[0]!= -100]
                 self.vizviz.write('\n')
                 self.vizviz.write(str(inputs['title'][0]))
