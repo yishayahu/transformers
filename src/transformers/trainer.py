@@ -1799,7 +1799,8 @@ class Trainer:
             self.cls_losses[0] = (self.cls_losses[0]* self.cls_losses[1] +outputs['loss_cls'].item())/(self.cls_losses[1]+1)
             self.mlm_losses[0] = (self.mlm_losses[0]* self.mlm_losses[1] +outputs['loss_mlm'].item())/(self.mlm_losses[1]+1)
             if random.random() < 0.1:
-                print(self.tokenizer.decode(inputs[0]))
+                print(inputs.keys())
+                print(self.tokenizer.decode(inputs['input_ids'][0]))
                 print(torch.argmax(outputs['category_score'][0]))
 
 
