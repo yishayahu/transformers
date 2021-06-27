@@ -16,6 +16,7 @@
 The Trainer class, to easily train a 🤗 Transformers from scratch or finetune it on a new task.
 """
 import pickle
+import wandb
 import collections
 import inspect
 import math
@@ -466,6 +467,7 @@ class Trainer:
         self.idx_to_cat = {}
         for k,v in temp.items():
             self.idx_to_cat[v] = k
+        self.vizviz = open('file_viz.txt','w')
 
     def add_callback(self, callback):
         """
@@ -1415,6 +1417,7 @@ class Trainer:
             self.store_flos()
 
             self.log(logs)
+            wandb.save(self.vizviz)
 
         metrics = None
         if self.control.should_evaluate:
@@ -1805,12 +1808,13 @@ class Trainer:
             if random.random() < 0.1:
                 labels = inputs['labels']
                 to_decode = inputs['input_ids'][0].clone().detach()
-                print(to_decode.shape)
-                print((labels[0] != -100).shape)
-                print((labels[0][labels[0]!= -100]).shape)
                 to_decode[labels[0] != -100] = labels[0][labels[0]!= -100]
-                print(self.tokenizer.decode(to_decode))
-                print(self.idx_to_cat[int(torch.argmax(outputs['category_score'][0])+1)])
+                self.vizviz.write('\n')
+                self.vizviz.write(str(inputs['title'][0]))
+                self.vizviz.write(str(self.idx_to_cat[int(torch.argmax(outputs['category_score'][0])+1)]))
+                self.vizviz.write(str(self.tokenizer.decode(to_decode)))
+                self.vizviz.write('\n')
+
 
 
         return (loss, outputs) if return_outputs else loss
