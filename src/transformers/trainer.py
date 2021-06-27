@@ -1810,7 +1810,7 @@ class Trainer:
                 print((labels[0][labels[0]!= -100]).shape)
                 to_decode[labels[0] != -100] = labels[0][labels[0]!= -100]
                 print(self.tokenizer.decode(to_decode))
-                print(self.idx_to_cat[torch.argmax(outputs['category_score'][0])+1])
+                print(self.idx_to_cat[int(torch.argmax(outputs['category_score'][0])+1)])
 
 
         return (loss, outputs) if return_outputs else loss
