@@ -1807,12 +1807,14 @@ class Trainer:
             self.mlm_losses[0] = (self.mlm_losses[0]* self.mlm_losses[1] +outputs['loss_mlm'].item())/(self.mlm_losses[1]+1)
             if random.random() < 0.1:
                 labels = inputs['labels']
-                to_decode = inputs['input_ids'][0].clone().detach()
+                to_decode = inputs['input_ids'][-1].clone().detach()
 
-                to_decode[labels[0] != -100] = labels[0][labels[0]!= -100]
+                to_decode[labels[-1] != -100] = labels[-1][labels[-1]!= -100]
                 self.vizviz.write('\n')
 
-                self.vizviz.write(str(self.idx_to_cat[int(torch.argmax(outputs['category_score'][0])+1)]))
+                self.vizviz.write(str(self.idx_to_cat[int(torch.argmax(outputs['category_score'][-1])+1)]))
+                self.vizviz.write('\n')
+                self.vizviz.write(str(self.idx_to_cat[int(torch.argmax(inputs['category_labels'][-1]))]))
                 self.vizviz.write('\n')
                 self.vizviz.write(str(self.tokenizer.decode(to_decode)))
                 self.vizviz.write('\n')
