@@ -1094,6 +1094,8 @@ class BertForPreTraining(BertPreTrainedModel):
             category_loss = torch.mean(category_loss)
             loss_factor = 2
             category_loss = category_loss * loss_factor
+            print(category_loss)
+            print(masked_lm_loss)
             total_loss = masked_lm_loss + category_loss
 
 
