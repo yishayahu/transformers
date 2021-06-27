@@ -1798,6 +1798,9 @@ class Trainer:
             loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
             self.cls_losses[0] = (self.cls_losses[0]* self.cls_losses[1] +outputs['loss_cls'].item())/(self.cls_losses[1]+1)
             self.mlm_losses[0] = (self.mlm_losses[0]* self.mlm_losses[1] +outputs['loss_mlm'].item())/(self.mlm_losses[1]+1)
+            if random.random() < 0.1:
+                print(self.tokenizer.decode(inputs[0]))
+                print(torch.argmax(outputs['category_score'][0]))
 
 
         return (loss, outputs) if return_outputs else loss

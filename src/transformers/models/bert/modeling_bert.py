@@ -750,6 +750,7 @@ class BertForPreTrainingOutput(ModelOutput):
     loss_mlm: Optional[torch.FloatTensor] = None
     loss_cls: Optional[torch.FloatTensor] = None
     prediction_logits: torch.FloatTensor = None
+    category_score: torch.FloatTensor = None
     seq_relationship_logits: torch.FloatTensor = None
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
     attentions: Optional[Tuple[torch.FloatTensor]] = None
@@ -1108,6 +1109,7 @@ class BertForPreTraining(BertPreTrainedModel):
             loss_mlm=masked_lm_loss,
             loss_cls=category_loss,
             prediction_logits=prediction_scores,
+            category_score=category_score,
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
