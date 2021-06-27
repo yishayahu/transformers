@@ -343,6 +343,14 @@ def main():
         def tokenize_function(examples):
             new_examples_text = []
             new_examples_title = []
+
+            for example in examples['text']:
+                temp = example.split("Category:")
+                assert len(temp)  ==2
+                new_examples_text.append(temp[0])
+
+            examples['text'] = new_examples_text
+            new_examples_text = []
             for article,title in zip(examples['text'],examples['title']):
                 full_paragraph = []
                 for i,paragraph in enumerate(article.split('.\n')):
