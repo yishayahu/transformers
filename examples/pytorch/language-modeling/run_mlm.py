@@ -344,9 +344,11 @@ def main():
             new_examples_text = []
             new_examples_title = []
 
-            for example in examples['text']:
-                temp = example.split("Category:")
-                assert len(temp)  > 1
+            for article,title in zip(examples['text'],examples['title']):
+                temp = article.split("Category:")
+                assert len(temp)  >= 1
+                if len(temp) == 1:
+                    assert title not in combined_wiki or  len(combined_wiki[title]) == 0
                 new_examples_text.append(temp[0])
 
             examples['text'] = new_examples_text
