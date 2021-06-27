@@ -462,6 +462,10 @@ class Trainer:
 
         self.cls_losses = [0,0]
         self.mlm_losses = [0,0]
+        temp = pickle.load(open("cat_to_idx.p", "rb"))
+        self.idx_to_cat = {}
+        for k,v in temp.items():
+            self.idx_to_cat[v] = k
 
     def add_callback(self, callback):
         """
@@ -1799,9 +1803,11 @@ class Trainer:
             self.cls_losses[0] = (self.cls_losses[0]* self.cls_losses[1] +outputs['loss_cls'].item())/(self.cls_losses[1]+1)
             self.mlm_losses[0] = (self.mlm_losses[0]* self.mlm_losses[1] +outputs['loss_mlm'].item())/(self.mlm_losses[1]+1)
             if random.random() < 0.1:
-                print(inputs.keys())
-                print(self.tokenizer.decode(inputs['input_ids'][0]))
-                print(torch.argmax(outputs['category_score'][0]))
+
+                to_decode = inputs['input_ids'][0].clone().detach()
+                to_decode[labels[0]!= -100] = labels[0][labels[0]!= -100]
+                print(self.tokenizer.decode(to_decode))
+                print(self.idx_to_cat[torch.argmax(outputs['category_score'][0])+1])
 
 
         return (loss, outputs) if return_outputs else loss
