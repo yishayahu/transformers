@@ -371,13 +371,13 @@ def main():
             examples['category_labels'] = []
             for title in examples['title']:
                 zeros = torch.zeros(2211)
+                zeros[0] = 1
                 if title in combined_wiki:
                     for category_idx in combined_wiki[title]:
-                        if category_idx in [5,9]:
+                        if category_idx in [5,8,9]:
                             continue
                         zeros[category_idx] = 1
-                else:
-                    zeros[0] = 1
+                        zeros[0] = 0
                 examples['category_labels'].append(zeros)
             return tokenizer(examples[text_column_name], return_special_tokens_mask=True,truncation=True,padding=True)
 
