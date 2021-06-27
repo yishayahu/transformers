@@ -1808,10 +1808,10 @@ class Trainer:
             if random.random() < 0.1:
                 labels = inputs['labels']
                 to_decode = inputs['input_ids'][0].clone().detach()
-                print(inputs.keys())
+
                 to_decode[labels[0] != -100] = labels[0][labels[0]!= -100]
                 self.vizviz.write('\n')
-                self.vizviz.write(str(inputs['title'][0]))
+
                 self.vizviz.write(str(self.idx_to_cat[int(torch.argmax(outputs['category_score'][0])+1)]))
                 self.vizviz.write(str(self.tokenizer.decode(to_decode)))
                 self.vizviz.write('\n')
