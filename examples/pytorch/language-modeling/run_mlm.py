@@ -372,7 +372,9 @@ def main():
             for title in examples['title']:
                 zeros = torch.zeros(2211)
                 if title in combined_wiki:
+                    print(title)
                     for category_idx in combined_wiki[title]:
+                        print(category_idx)
                         zeros[category_idx] = 1
                 else:
                     zeros[0] = 1
