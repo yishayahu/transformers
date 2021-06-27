@@ -1417,7 +1417,7 @@ class Trainer:
             self.store_flos()
 
             self.log(logs)
-            wandb.save(self.vizviz)
+            wandb.save('file_viz.txt')
 
         metrics = None
         if self.control.should_evaluate:
@@ -1813,6 +1813,7 @@ class Trainer:
                 self.vizviz.write('\n')
 
                 self.vizviz.write(str(self.idx_to_cat[int(torch.argmax(outputs['category_score'][0])+1)]))
+                self.vizviz.write('\n')
                 self.vizviz.write(str(self.tokenizer.decode(to_decode)))
                 self.vizviz.write('\n')
 
