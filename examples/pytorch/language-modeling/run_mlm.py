@@ -346,7 +346,7 @@ def main():
 
             for example in examples['text']:
                 temp = example.split("Category:")
-                assert len(temp)  ==2
+                assert len(temp)  > 1
                 new_examples_text.append(temp[0])
 
             examples['text'] = new_examples_text
